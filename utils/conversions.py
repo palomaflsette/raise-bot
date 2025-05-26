@@ -1,0 +1,3 @@
+""" 
+Transformações NumPy <-> OpenCV, etc.
+"""

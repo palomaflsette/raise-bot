@@ -1,0 +1,3 @@
+""" 
+Cálculo das normais
+"""

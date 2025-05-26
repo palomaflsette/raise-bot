@@ -1,0 +1,3 @@
+""" 
+captura via Arduino/serial
+"""

@@ -1,0 +1,3 @@
+""" 
+script principal da interface 
+"""
