@@ -1,3 +1,0 @@
-""" 
-Captura da câmera colorida
-"""
