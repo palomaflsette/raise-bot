@@ -4,6 +4,7 @@ import numpy as np
 from PIL import Image, ImageTk
 from vision.depth_stream import create_pipeline, filter_depth_range
 from gui.plot_utils import render_profile_plot
+from customtkinter import CTkImage
 
 
 def start_camera_stream(gui):
@@ -23,7 +24,8 @@ def update_camera_frames(gui):
     if in_rgb:
         rgb_frame = in_rgb.getCvFrame()
         img = Image.fromarray(cv2.cvtColor(rgb_frame, cv2.COLOR_BGR2RGB))
-        imgtk = ImageTk.PhotoImage(image=img.resize((440, 350)))
+        #imgtk = ImageTk.PhotoImage(image=img.resize((440, 350)))
+        imgtk = CTkImage(light_image=img, size=(440, 350))
         gui.rgb_canvas.configure(image=imgtk, text="")
         gui.rgb_canvas.image = imgtk
 
@@ -43,7 +45,8 @@ def update_camera_frames(gui):
         depth_colormap = cv2.applyColorMap(depth_norm, cv2.COLORMAP_JET)
 
         img = Image.fromarray(depth_colormap)
-        imgtk = ImageTk.PhotoImage(image=img.resize((440, 350)))
+        #imgtk = ImageTk.PhotoImage(image=img.resize((440, 350)))
+        imgtk = CTkImage(light_image=img, size=(440, 350))
         gui.depth_canvas.configure(image=imgtk, text="")
         gui.depth_canvas.image = imgtk
 

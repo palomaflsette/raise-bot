@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageTk
 from gui.plot_utils import render_profile_plot
+from customtkinter import CTkImage
 
 
 def start_simulated_stream(gui):
@@ -18,7 +19,8 @@ def update_simulated_frames(gui):
         rgb_frame[..., i] = np.linspace(0, 255, 640, dtype=np.uint8)
 
     img_rgb = Image.fromarray(rgb_frame)
-    imgtk_rgb = ImageTk.PhotoImage(image=img_rgb.resize((440, 350)))
+    #imgtk_rgb = ImageTk.PhotoImage(image=img_rgb.resize((440, 350)))
+    imgtk_rgb = CTkImage(light_image=img_rgb, size=(440, 350))
     gui.rgb_canvas.configure(image=imgtk_rgb, text="")
     gui.rgb_canvas.image = imgtk_rgb
 
@@ -35,7 +37,8 @@ def update_simulated_frames(gui):
     depth_colormap = cv2.applyColorMap(depth_norm, cv2.COLORMAP_JET)
 
     img_depth = Image.fromarray(depth_colormap)
-    imgtk_depth = ImageTk.PhotoImage(image=img_depth.resize((440, 350)))
+    #imgtk_depth = ImageTk.PhotoImage(image=img_depth.resize((440, 350)))
+    imgtk_depth = CTkImage(light_image=img_depth, size=(440, 350))
     gui.depth_canvas.configure(image=imgtk_depth, text="")
     gui.depth_canvas.image = imgtk_depth
 
