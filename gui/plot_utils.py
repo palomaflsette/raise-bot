@@ -27,7 +27,7 @@ def render_profile_plot(depth_frame, target_widget, parent_gui):
     )
 
     if hasattr(parent_gui, 'profile_canvas'):
-        parent_gui.profile_canvas.get_tk_widget().destroy()
+        parent_gui.profile_canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
 
     parent_gui.profile_canvas = FigureCanvasTkAgg(fig, master=target_widget)
     parent_gui.profile_canvas.draw()

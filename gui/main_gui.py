@@ -6,9 +6,9 @@ import webbrowser
 from tkinter import Menu, messagebox
 import customtkinter as ctk
 import tkinter as tk
-from gui.controllers import start_system, save_capture, toggle_debug, reset_robot
 from gui.layout import create_section
 from gui.widgets import create_depth_slider
+from gui.controllers import start_system, save_capture, start_debug_mode, reset_robot
 from gui.assets import README_URL, ABOUT_TEXT
 
 
@@ -79,6 +79,8 @@ class RaiseGui(ctk.CTk):
         self.normals_frame, self.normals_canvas = create_section(
             self.frame_top, "Normals / Profile", "(Imagem Normals aqui)")
         self.normals_frame.grid(row=0, column=2, padx=5, pady=5, sticky="nsew")
+        self.normals_canvas.grid_rowconfigure(0, weight=1)
+        self.normals_canvas.grid_columnconfigure(0, weight=1)
 
         # ---------- PARTE DO MEIO: SINAIS DINÂMICOS ----------
         self.frame_middle = ctk.CTkFrame(scrollable_frame, height=250)
@@ -118,7 +120,7 @@ class RaiseGui(ctk.CTk):
         self.save_button.grid(row=0, column=2, padx=10, pady=10)
 
         self.debug_button = ctk.CTkButton(
-            self.frame_bottom, text="Modo Debug", command=lambda: toggle_debug(self))
+            self.frame_bottom, text="Modo Debug", command=lambda: start_debug_mode(self))
         self.debug_button.grid(row=0, column=3, padx=10, pady=10)
         
 
