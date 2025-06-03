@@ -5,7 +5,7 @@ import customtkinter as ctk
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib
-matplotlib.use("Agg")  # Desativa GUI interativa
+matplotlib.use("Agg")
 
 
 
@@ -35,11 +35,9 @@ def render_profile_plot(depth_frame, target_widget, parent_gui):
     if hasattr(parent_gui, 'profile_canvas'):
         parent_gui.profile_canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
 
-
     # parent_gui.profile_canvas = FigureCanvasTkAgg(fig, master=target_widget)
     # parent_gui.profile_canvas.draw()
     # parent_gui.profile_canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
-
 
     fig.tight_layout()
     buf = BytesIO()
@@ -47,7 +45,6 @@ def render_profile_plot(depth_frame, target_widget, parent_gui):
     buf.seek(0)
     img = Image.open(buf)
 
-    # Converta pra CTkImage e exiba no canvas
     imgtk = ctk.CTkImage(light_image=img, size=(440, 200))
     target_widget.configure(image=imgtk, text="")
     target_widget.image = imgtk
