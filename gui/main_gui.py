@@ -9,7 +9,7 @@ import tkinter as tk
 from gui.layout import create_section
 from gui.widgets import create_depth_slider
 from gui.controllers import start_system, save_capture, start_debug_mode, reset_robot
-from gui.assets import README_URL, ABOUT_TEXT
+from gui.assets import README_URL, ABOUT_TEXT, TITLE
 
 
 ctk.set_appearance_mode("dark")
@@ -22,7 +22,7 @@ class RaiseGui(ctk.CTk):
         
         self.geometry("1325x800")
         self.minsize(1000, 600)
-        self.title("RAISE - Robotic Acoustic Inspection with Surface Estimation")
+        self.title(TITLE)
         self.grid_columnconfigure((0, 1, 2), weight=1)
         self.grid_rowconfigure((0, 1, 2), weight=1)
         

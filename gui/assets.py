@@ -1,4 +1,5 @@
 
+TITLE = "RAISE: Robotic Acoustic Inspection with Surface Estimation"
 README_URL = "https://github.com/palomaflsette/raise-bot/blob/main/README.md"
 ABOUT_TEXT = (
     "RAISE: Robotic Acoustic Inspection with Surface Estimation\n\n"
