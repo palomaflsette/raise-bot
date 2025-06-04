@@ -65,7 +65,6 @@ def create_pipeline():
     return pipeline
 
 
-
 # ---------- UTILIDADE OPCIONAL PARA APLICAR THRESHOLD ----------
 def filter_depth_range(depth_frame, min_depth=DEPTH_MIN, max_depth=DEPTH_MAX):
     """
