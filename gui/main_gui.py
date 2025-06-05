@@ -26,9 +26,8 @@ class RaiseGui(ctk.CTk):
         self.grid_columnconfigure((0, 1, 2), weight=1)
         self.grid_rowconfigure((0, 1, 2), weight=1)
         
-        # parametros de profundidade
         self.min_depth = 100 # mm
-        self.max_depth = 10000 # mm
+        self.max_depth = 1000 # mm
         
         # scroller
         container = ctk.CTkFrame(self)
@@ -123,27 +122,6 @@ class RaiseGui(ctk.CTk):
             self.frame_bottom, text="Modo Debug", command=lambda: start_debug_mode(self))
         self.debug_button.grid(row=0, column=3, padx=10, pady=10)
         
-
-        # Sliders de profundidade
-        self.slider_min, self.label_min = create_depth_slider(
-            self.frame_bottom, "Min Depth", self.min_depth, self.update_min_depth)
-        self.slider_min.grid(row=1, column=0, columnspan=2, padx=10, pady=5)
-        self.label_min.grid(row=1, column=2, padx=5)
-        
-        self.slider_max, self.label_max = create_depth_slider(
-            self.frame_bottom, "Max Depth", self.max_depth, self.update_max_depth)
-        self.slider_max.grid(row=2, column=0, columnspan=2, padx=10, pady=5)
-        self.label_max.grid(row=2, column=2, padx=5)
-        
-        
-    def update_min_depth(self, value):
-        self.min_depth = int(value)
-        self.label_min.configure(text=f"Min Depth: {self.min_depth} mm")
-
-    def update_max_depth(self, value):
-        self.max_depth = int(value)
-        self.label_max.configure(text=f"Max Depth: {self.max_depth} mm")
-
 
     def open_readme(self):
         webbrowser.open(README_URL)
