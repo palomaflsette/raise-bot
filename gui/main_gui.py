@@ -6,6 +6,7 @@ import webbrowser
 from tkinter import Menu, messagebox
 import customtkinter as ctk
 import tkinter as tk
+from tkinter import *
 from gui.layout import create_section
 from gui.widgets import create_depth_slider
 from gui.controllers import start_system, save_capture, start_debug_mode, reset_robot
@@ -23,6 +24,15 @@ class RaiseGui(ctk.CTk):
         self.geometry("1325x800")
         self.minsize(1000, 600)
         self.title(TITLE)
+        try:
+            icon_path = "assets/icon-bot.ico"
+            if os.path.exists(icon_path):
+                self.iconbitmap(icon_path)
+            else:
+                print(f"Ícone não encontrado: {icon_path}")
+
+        except Exception as e:
+            print(f"Erro ao definir ícone: {e}")
         self.grid_columnconfigure((0, 1, 2), weight=1)
         self.grid_rowconfigure((0, 1, 2), weight=1)
         
