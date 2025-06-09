@@ -39,7 +39,7 @@ def extract_stable_profile_line(depth_frame, line_y=240, window_size=5):
         valid_values = profile_line[valid_mask]
         if len(valid_values) > 10:
             profile_line = np.interp(x_coords, valid_coords, valid_values)
-            profile_line = gaussian_filter1d(profile_line, sigma=1.5)
+            #profile_line = gaussian_filter1d(profile_line, sigma=1.5)
     return profile_line
 
 
@@ -56,7 +56,7 @@ def extract_vertical_profile(depth_frame, col_x=320, window_size=5):
         valid_coords = y_coords[valid_mask]
         valid_values = profile_column[valid_mask]
         profile_column = np.interp(y_coords, valid_coords, valid_values)
-        profile_column = gaussian_filter1d(profile_column, sigma=1.5)
+        #profile_column = gaussian_filter1d(profile_column, sigma=1.5)
     return profile_column
 
 
@@ -281,7 +281,7 @@ def extract_stable_profile_line(depth_frame, line_y=240, window_size=5):
             profile_line = np.interp(x_coords, valid_coords, valid_values)
 
             #  filtro gaussiano para suavização final
-            profile_line = gaussian_filter1d(profile_line, sigma=1.5)
+            #profile_line = gaussian_filter1d(profile_line, sigma=1.5)
 
     return profile_line
 
@@ -302,6 +302,9 @@ def analyze_depth_quality(depth_frame, line_y=240):
     """
     Analisa qualidade da detecção de profundidade
     """
+    stats = analyze_depth_quality(depth_frame)
+    print("[DEBUG] Qualidade da profundidade:", stats)
+
     profile = depth_frame[line_y, :].astype(np.float32)
     profile[profile == 0] = np.nan
 
