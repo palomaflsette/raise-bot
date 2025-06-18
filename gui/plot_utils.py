@@ -7,6 +7,8 @@ from scipy.ndimage import gaussian_filter1d
 import customtkinter as ctk
 import matplotlib
 from PIL import ImageTk
+from vision.depth_utils import corrigir_perfil_com_transformacao
+
 matplotlib.use("Agg")
 
 """Importar função do depth_stream atualizado"""
@@ -37,6 +39,7 @@ def render_profile_plot_comparison(depth_frame, target_widget, parent_gui):
         valid_values = z[valid_mask]
         try:
             z = np.interp(x_coords, valid_coords, valid_values)
+            #z = gaussian_filter1d(z, sigma=2.0)
         except Exception as e:
             print(f"[ERRO] Falha na interpolação: {e}")
             return
@@ -151,12 +154,22 @@ def render_profile_plot(depth_frame, target_widget, parent_gui):
         try:
             # Interp. linear
             z = np.interp(x_coords, valid_coords, valid_values)
+            #z = gaussian_filter1d(z, sigma=2.0)
         except Exception as e:
             print(f"[ERRO] Falha na interpolação: {e}")
             return
     else:
         print("[AVISO] Poucos pontos válidos para interpolação.")
         return
+    
+        # === PERFIL CORRIGIDO COM T_cam_to_robo (opcional) ===
+    perfil_corrigido = None
+    if hasattr(parent_gui, "T_cam_to_robo") and parent_gui.T_cam_to_robo is not None:
+        try:
+            perfil_corrigido = corrigir_perfil_com_transformacao(depth_frame, parent_gui.T_cam_to_robo)
+        except Exception as e:
+            print(f"[ERRO] Falha ao calcular perfil corrigido: {e}")
+
 
     # detectando a região de interesse (objetos próximos)
     close_mask = (z > 100) & (z < 400)
@@ -267,6 +280,11 @@ def render_profile_plot(depth_frame, target_widget, parent_gui):
     ax1.text(0.02, 0.98, stats_text, transform=ax1.transAxes,
              verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8),
              fontsize=8)
+    
+    if perfil_corrigido is not None and len(perfil_corrigido) > 0:
+            x_corr = [p[0]*1000 for p in perfil_corrigido]  # x em mm
+            z_corr = [p[1]*1000 for p in perfil_corrigido]  # z em mm
+            ax1.plot(x_corr, z_corr, color="blue", linestyle="--", linewidth=2, label="Perfil no Robô")
 
     plt.tight_layout()
 
@@ -534,7 +552,7 @@ def render_depth_colormap(depth_frame, target_widget, parent_gui, min_depth=100,
     depth_display = np.copy(depth)
 
     # Tudo acima do limite será vermelho escuro
-    red_color = np.array([128, 0, 0], dtype=np.uint8)  # RBG
+    red_color = np.array([128, 0, 0], dtype=np.uint8)  # RGB
     colormap = np.zeros((depth.shape[0], depth.shape[1], 3), dtype=np.uint8)
 
     # Normalizar para 8 bits para aplicar colormap
@@ -547,19 +565,23 @@ def render_depth_colormap(depth_frame, target_widget, parent_gui, min_depth=100,
 
     valid_mask = (depth >= min_depth) & (depth <= max_depth)
     colormap[valid_mask] = jet[valid_mask]
-    colormap[~valid_mask] = red_color  # Fora da faixa
+    colormap[~valid_mask] = red_color  
 
-    img = Image.fromarray(cv2.cvtColor(colormap, cv2.COLOR_BGR2RGB))
-    target_widget.delete("all")
+    # Convertendo para imagem PIL
+    img_pil = Image.fromarray(cv2.cvtColor(colormap, cv2.COLOR_BGR2RGB))
 
+    # Ajustar tamanho do canvas
     canvas_width = target_widget.winfo_width()
     canvas_height = target_widget.winfo_height()
     if canvas_width <= 1 or canvas_height <= 1:
         canvas_width, canvas_height = 440, 300
 
-    img_resized = img.resize((canvas_width, canvas_height), Image.LANCZOS)
+    # Redimensionar a imagem antes de converter para PhotoImage
+    img_resized = img_pil.resize((canvas_width, canvas_height), Image.LANCZOS)
     imgtk = ImageTk.PhotoImage(img_resized)
 
+    # Exibir no canvas
+    target_widget.delete("all")
     x = canvas_width // 2
     y = canvas_height // 2
     target_widget.create_image(x, y, image=imgtk, anchor="center")

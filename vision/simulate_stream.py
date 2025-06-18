@@ -376,7 +376,9 @@ def update_simulated_frames(gui):
         rgb_frame = debug_simulator.generate_rgb_frame()
 
         # Processar RGB
-        img_rgb = Image.fromarray(rgb_frame)
+        #img_rgb = Image.fromarray(rgb_frame)
+        img_rgb = ImageTk.PhotoImage(image=Image.fromarray(rgb_frame))
+
         canvas_width = gui.rgb_canvas.winfo_width()
         canvas_height = gui.rgb_canvas.winfo_height()
 
@@ -421,7 +423,9 @@ def update_simulated_frames(gui):
                           (gui.max_depth - gui.min_depth) * 255).astype(np.uint8)
             depth_colormap = cv2.applyColorMap(depth_norm, cv2.COLORMAP_JET)
 
-            img_depth = Image.fromarray(depth_colormap)
+            #img_depth = Image.fromarray(depth_colormap)
+            img_depth = ImageTk.PhotoImage(image=Image.fromarray(depth_colormap))
+
             depth_canvas_width = gui.depth_canvas.winfo_width()
             depth_canvas_height = gui.depth_canvas.winfo_height()
 

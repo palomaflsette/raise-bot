@@ -1,3 +1,6 @@
+import sys
+import os
+sys.path.append(os.path.abspath(".."))
 from gui.assets import README_URL, ABOUT_TEXT, TITLE
 from gui.controllers import start_system, save_capture, start_debug_mode, reset_robot
 from gui.widgets import create_depth_slider
@@ -7,9 +10,6 @@ import tkinter as tk
 import customtkinter as ctk
 from tkinter import Menu, messagebox
 import webbrowser
-import sys
-import os
-sys.path.append(os.path.abspath(".."))
 
 
 ctk.set_appearance_mode("dark")

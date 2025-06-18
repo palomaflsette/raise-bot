@@ -22,8 +22,8 @@ from scipy.ndimage import gaussian_filter1d, uniform_filter
 
 DEPTH_MIN = 100   # mm 
 DEPTH_MAX = 430   # mm 
-CONFIDENCE_THRESHOLD = 255  # Mais permissivo
-LR_CHECK_THRESHOLD = 4      # Mais tolerante
+CONFIDENCE_THRESHOLD = 200  # Mais permissivo
+LR_CHECK_THRESHOLD = 2      # Mais tolerante
 
 def extract_stable_profile_line(depth_frame, line_y=240, window_size=5):
     height, width = depth_frame.shape
@@ -39,7 +39,7 @@ def extract_stable_profile_line(depth_frame, line_y=240, window_size=5):
         valid_values = profile_line[valid_mask]
         if len(valid_values) > 10:
             profile_line = np.interp(x_coords, valid_coords, valid_values)
-            #profile_line = gaussian_filter1d(profile_line, sigma=1.5)
+            profile_line = gaussian_filter1d(profile_line, sigma=1.5)
     return profile_line
 
 
@@ -56,7 +56,7 @@ def extract_vertical_profile(depth_frame, col_x=320, window_size=5):
         valid_coords = y_coords[valid_mask]
         valid_values = profile_column[valid_mask]
         profile_column = np.interp(y_coords, valid_coords, valid_values)
-        #profile_column = gaussian_filter1d(profile_column, sigma=1.5)
+        profile_column = gaussian_filter1d(profile_column, sigma=1.5)
     return profile_column
 
 
@@ -280,8 +280,7 @@ def extract_stable_profile_line(depth_frame, line_y=240, window_size=5):
             # Interpolando valores faltantes
             profile_line = np.interp(x_coords, valid_coords, valid_values)
 
-            #  filtro gaussiano para suavização final
-            #profile_line = gaussian_filter1d(profile_line, sigma=1.5)
+            profile_line = gaussian_filter1d(profile_line, sigma=1.5)
 
     return profile_line
 
