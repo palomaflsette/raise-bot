@@ -10,18 +10,22 @@ from robot.pincher import Pincher
 import threading
 from vision.simulate_stream import start_simulated_stream
 from vision.camera_stream import start_camera_stream, start_candidate_thread
+import depthai as dai
 
 def start_system(gui):
+    """
+    Versão corrigida: Apenas prepara os objetos e delega a conexão da
+    câmera para a thread do camera_stream.
+    """
     gui.pincher = Pincher()
 
-    # Inicializa ponto salvo
     if not hasattr(gui, "last_valid_point"):
         gui.last_valid_point = None
 
-    # Inicia thread de candidatos, com last_valid_point passado
     start_candidate_thread(gui)
 
-    print("Sistema iniciado")
+    print("Sistema iniciado. Aguardando conexão da câmera...")
+    
     threading.Thread(target=lambda: start_camera_stream(gui), daemon=True).start()
 
 
