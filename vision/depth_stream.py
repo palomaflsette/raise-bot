@@ -22,8 +22,8 @@ from scipy.ndimage import gaussian_filter1d, uniform_filter
 
 DEPTH_MIN = 100   # mm 
 DEPTH_MAX = 430   # mm 
-CONFIDENCE_THRESHOLD = 255  # Mais permissivo
-LR_CHECK_THRESHOLD = 4      # Mais tolerante
+CONFIDENCE_THRESHOLD = 200  # Mais permissivo
+LR_CHECK_THRESHOLD = 2      # Mais tolerante
 
 def extract_stable_profile_line(depth_frame, line_y=240, window_size=5):
     height, width = depth_frame.shape
@@ -280,7 +280,6 @@ def extract_stable_profile_line(depth_frame, line_y=240, window_size=5):
             # Interpolando valores faltantes
             profile_line = np.interp(x_coords, valid_coords, valid_values)
 
-            #  filtro gaussiano para suavização final
             profile_line = gaussian_filter1d(profile_line, sigma=1.5)
 
     return profile_line
@@ -302,6 +301,9 @@ def analyze_depth_quality(depth_frame, line_y=240):
     """
     Analisa qualidade da detecção de profundidade
     """
+    stats = analyze_depth_quality(depth_frame)
+    print("[DEBUG] Qualidade da profundidade:", stats)
+
     profile = depth_frame[line_y, :].astype(np.float32)
     profile[profile == 0] = np.nan
 
