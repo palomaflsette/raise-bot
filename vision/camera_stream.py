@@ -34,6 +34,9 @@ def start_camera_stream(gui):
         gui.max_depth = 430
 
     gui._camera_running = True
+    if not hasattr(gui, 'candidate_points'):
+         gui.candidate_points = []
+
     gui._frame_skip_counter = 0
 
     try:
@@ -139,6 +142,32 @@ def update_camera_frames_optimized(gui):
     except Exception as e:
         print(f"[ERROR] Erro ao agendar próxima atualização: {e}")
 
+def extract_mask_bowls(rgb_image):
+    """
+    Gera uma máscara binária das regiões azuladas dos bowls
+    """
+    hsv = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2HSV)
+    # Tons de azul ajustados
+    lower_blue = np.array([90, 60, 50])
+    upper_blue = np.array([135, 255, 255])
+
+    mask = cv2.inRange(hsv, lower_blue, upper_blue)
+
+    mask = cv2.medianBlur(mask, 7)
+
+    # Detectar apenas regiões circulares grandes (usando contornos ou Hough)
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    output = np.zeros_like(mask)
+    for cnt in contours:
+        area = cv2.contourArea(cnt)
+        if area > 1000:  
+            (x, y), radius = cv2.minEnclosingCircle(cnt)
+            if 30 < radius < 100:  
+                cv2.drawContours(output, [cnt], -1, 255, -1)
+
+    return output
+
+
 
 def _update_rgb_frame_fast(gui):
     """
@@ -151,6 +180,11 @@ def _update_rgb_frame_fast(gui):
         
 
         rgb_frame = in_rgb.getCvFrame()
+        gui._rgb_raw = rgb_frame.copy()
+
+        mask_rgb = extract_mask_bowls(rgb_frame)
+        gui.mask_rgb = mask_rgb  # salvar na GUI para usar depois nos pontos candidatos
+
         
         """DETECÇÃO DO ARUCO (ID 0) E MATRIZ T_cam_to_robo """
         try:
@@ -225,6 +259,10 @@ def _update_rgb_frame_fast(gui):
         y = canvas_height // 2
         gui.rgb_canvas.create_image(x, y, image=imgtk, anchor="center")
         gui.rgb_canvas.image = imgtk
+        
+        rgb_frame = draw_targets_on_rgb(
+            rgb_frame, gui.candidate_points, color=(0, 255, 0))
+
 
     except Exception as e:
         print(f"[WARNING] Erro ao processar frame RGB: {e}")
@@ -248,8 +286,12 @@ def start_candidate_thread(gui):
                         gui.last_depth_frame,
                         pincher=gui.pincher,
                         T_cam_to_robo=gui.T_cam_to_robo,
+                        rgb_frame=gui._rgb_raw if hasattr(
+                            gui, '_rgb_raw') else None,
                         last_valid_point=gui.last_valid_point
                     )
+
+
 
                     if pontos and pontos[0] is not None:
                         gui.last_valid_point = pontos[0]
