@@ -15,6 +15,9 @@ class Pincher(Arbotix):
         self.l2 = 0.109
         self.l3 = 0.08
         self.zbase = 0.106+0.047
+        
+        self.arm_ids = [1, 2, 3, 4]
+        self.gripper_id = 5 #id do servo do end-effector
 
     def admissible(self, q):
         """Verifies if q is an admissible configuration."""
