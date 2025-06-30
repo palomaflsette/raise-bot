@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.abspath(".."))
 from gui.assets import README_URL, ABOUT_TEXT, TITLE
-from gui.controllers import start_system, save_capture, start_debug_mode, reset_robot
+from gui.controllers import start_system, save_capture, start_debug_mode, reset_robot, move_to_target
 from gui.widgets import create_depth_slider
 from gui.layout import create_section
 from tkinter import *
@@ -20,7 +20,7 @@ class RaiseGui(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.geometry("800x600")
+        self.geometry("800x700")
         self.minsize(800, 600)
         self.title(TITLE)
         try:
@@ -183,6 +183,20 @@ class RaiseGui(ctk.CTk):
             self.frame_bottom, text="Modo Debug",
             command=lambda: start_debug_mode(self), **button_options)
         self.debug_button.grid(row=0, column=3, padx=10, pady=10, sticky="ew")
+        
+        self.debug_button.grid(row=0, column=3, padx=10, pady=10, sticky="ew")
+
+        # --- NOVO BOTÃO ---
+        self.move_button = ctk.CTkButton(
+            self.frame_bottom, text="MOVER ROBÔ PARA O ALVO",
+            command=lambda: move_to_target(self),
+            height=40,
+            font=("Arial", 12, "bold"),
+            fg_color="#2E8B57",  # Verde mais escuro
+            hover_color="#3CB371"  # Verde mais claro
+        )
+        self.move_button.grid(row=1, column=0, columnspan=4,
+                              padx=10, pady=10, sticky="ew")
 
         # REMOVER as configurações fixas de altura que limitavam a flexibilidade
         # Comentado para permitir flexibilidade total:

@@ -4,7 +4,7 @@
 """Pincher driver."""
 
 import numpy as np
-from math import pi, sin, cos, atan2, sqrt
+from math import pi, sin, cos, atan2, sqrt, radians
 from .dynamixel import Arbotix
 from transforms.transformations import *
 
@@ -15,6 +15,9 @@ class Pincher(Arbotix):
         self.l2 = 0.109
         self.l3 = 0.08
         self.zbase = 0.106+0.047
+        
+        self.arm_ids = [1, 2, 3, 4]
+        self.gripper_id = 5 #id do servo do end-effector
 
     def admissible(self, q):
         """Verifies if q is an admissible configuration."""
@@ -66,9 +69,9 @@ class Pincher(Arbotix):
         # Siciliano, p. 92
         norm2 = x**2+z**2
         c2 = (norm2-self.l1**2-self.l2**2)/(2*self.l1*self.l2)
-        if c2 < -1 or c2 > 1:
-            print(f"[IK] Ponto descartado: c2={c2:.5f} fora do domínio válido")
-            return None  
+        # if c2 < -1 or c2 > 1:
+        #     print(f"[IK] Ponto descartado: c2={c2:.5f} fora do domínio válido")
+        #     return None  
 
         s2 = -sqrt(1-c2**2) # Always arm up
         t2 = atan2(s2, c2)
@@ -87,18 +90,27 @@ class Pincher(Arbotix):
 
         return q
     
-    def try_ik_with_phi_range(pincher, x, y, z, phi_range_deg=(-90, 95), step_deg=5):
-        from math import radians
+    def try_ik_with_phi_range(self, pose_xyz, phi_range_deg=(-90, 95), step_deg=5):
+        """
+        Tenta encontrar uma solução de IK para uma dada posição [x, y, z],
+        iterando sobre uma faixa de ângulos da garra (phi).
+        """
+        x, y, z = pose_xyz
+        
         for deg in range(int(phi_range_deg[0]), int(phi_range_deg[1]), step_deg):
             phi = radians(deg)
             pose = [x, y, z, phi]
             try:
-                q = pincher.ik(pose)
-                print(f"Sucesso com phi = {deg}° → q (graus) = {np.degrees(q)}")
+                q = self.ik(pose)
+                # Se encontrou uma solução válida, retorna imediatamente
+                print(f"[IK SUCESSO] Solução encontrada com phi = {deg}°")
                 return q
             except ValueError:
+                # Continua para o próximo ângulo
                 continue
-        print("Nenhum valor de phi no intervalo funcionou.")
+        
+        # Se o loop terminar sem encontrar solução
+        # print(f"[IK FALHA] Nenhuma solução de IK encontrada para a posição ({x:.2f}, {y:.2f}, {z:.2f}) no intervalo de phi.")
         return None
 
 
@@ -113,7 +125,7 @@ class Pincher(Arbotix):
         x[3] = -atan2(fr[0,0], fr[0,2])
         return x
 
-    def within_workspace(self, p_robo, min_radius=0.12, max_radius=0.70, min_z=-0.15, max_z=0.30):
+    def within_workspace(self, p_robo, min_radius=0.09, max_radius=0.70, min_z=-0.15, max_z=0.30):
         """
         Checa se o ponto transformado (em metros) está dentro do workspace realista:
         → visível pela câmera e fisicamente alcançável pelo robô.

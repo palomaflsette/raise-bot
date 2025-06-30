@@ -87,6 +87,13 @@ def create_pipeline():
     cam_rgb.setFps(30)
     cam_rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.RGB)
 
+    exposure_anotado = 7857
+    iso_anotado = 729
+    wb_anotado = 5388
+
+    cam_rgb.initialControl.setManualExposure(exposure_anotado, iso_anotado)
+    cam_rgb.initialControl.setManualWhiteBalance(wb_anotado)
+    
     # Mono Cameras - Configuração crítica para objetos próximos
     mono_left = pipeline.create(dai.node.MonoCamera)
     mono_right = pipeline.create(dai.node.MonoCamera)
@@ -120,9 +127,8 @@ def create_pipeline():
     # Configuração avançada - A CHAVE PARA ESTABILIDADE
     config = stereo.initialConfig.get()
 
-    # Filtros de pós-processamento
     try:
-        # Filtro de threshold - usando a API correta
+        # Filtro de threshold
         config.postProcessing.thresholdFilter.minRange = DEPTH_MIN
         config.postProcessing.thresholdFilter.maxRange = DEPTH_MAX
 
@@ -154,7 +160,6 @@ def create_pipeline():
     except AttributeError as e:
         print(f"[WARNING] Configurações algorítmicas não disponíveis: {e}")
 
-    # Otimizando censo para objetos próximos com KERNEL_7X9
     try:
         config.censusTransform.enableMeanMode = True
         config.censusTransform.kernelSize = dai.RawStereoDepthConfig.CensusTransform.KernelSize.KERNEL_7x9
@@ -239,11 +244,10 @@ def filter_depth_range(depth_frame, min_depth=DEPTH_MIN, max_depth=DEPTH_MAX):
     filtered[~mask] = np.nan
 
     if np.count_nonzero(mask) > 100:
-        #  filtro bilateral com float32 (ok para OpenCV)
         valid = np.copy(filtered)
-        valid[np.isnan(valid)] = 0  # zera os NaNs para filtrar
+        valid[np.isnan(valid)] = 0  
         valid = cv2.bilateralFilter(valid, d=9, sigmaColor=75, sigmaSpace=75)
-        valid[np.isnan(filtered)] = 0  # Restaura os nulos originais
+        valid[np.isnan(filtered)] = 0  
         return valid.astype(np.uint16)
     else:
         filtered[np.isnan(filtered)] = 0
@@ -261,14 +265,11 @@ def extract_stable_profile_line(depth_frame, line_y=240, window_size=5):
     start_y = max(0, line_y - window_size // 2)
     end_y = min(height, line_y + window_size // 2 + 1)
 
-    # extraindo múltiplas linhas
     lines = depth_frame[start_y:end_y, :].astype(np.float32)
     lines[lines == 0] = np.nan
 
-    #  mediana ao longo do eixo Y
     profile_line = np.nanmedian(lines, axis=0)
 
-    #  filtros para suavização
     valid_mask = ~np.isnan(profile_line)
     if np.sum(valid_mask) > 20:
         # Interpolação de pontos faltantes

@@ -135,10 +135,6 @@ class MultiTopologyAnalyzer:
         y = wavelet_coeffs
         return x, y, "Wavelet - Escalas vs Coeficientes"
 
-# -----------------------------
-# Visualizador Principal
-# -----------------------------
-
 
 class MultiTopologyVisualizer:
     def __init__(self):
@@ -175,15 +171,12 @@ class MultiTopologyVisualizer:
         self.root.geometry("1400x900")
         self.root.title("Multi-Topologia Sonora - Biofeedback Avançado")
 
-        # Frame principal
         main_frame = ctk.CTkFrame(self.root)
         main_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
-        # Frame de controles
         control_frame = ctk.CTkFrame(main_frame)
         control_frame.pack(side="left", fill="y", padx=(0, 5))
 
-        # Título
         ctk.CTkLabel(control_frame, text="MULTI-TOPOLOGIA",
                      font=("Arial", 16, "bold")).pack(pady=10)
 
@@ -361,7 +354,6 @@ class MultiTopologyVisualizer:
                 ax.set_title(f"Topologia {i+1} - Erro",
                              color='red', fontsize=8)
 
-        # Atualizar métricas
         self.metrics_text.delete("1.0", "end")
         self.metrics_text.insert("1.0", metrics_text)
 
@@ -389,20 +381,16 @@ class MultiTopologyVisualizer:
             return
 
         try:
-            # Ler dados
             signal = self.read_arduino_data()
             signal = signal - np.mean(signal)
 
-            # Filtrar se possível
             if len(signal) >= 51:
                 signal = savgol_filter(signal, 51, 3)
 
             self.data_counter += 1
 
-            # Visualizar todas as topologias
             self.visualize_all_topologies(signal)
 
-            # Status
             status = f"ATIVO - Frame {self.data_counter}"
             if self.ser:
                 status += " | Arduino OK"
@@ -426,11 +414,6 @@ class MultiTopologyVisualizer:
 
     def stop_visualization(self):
         self.running = False
-
-# -----------------------------
-# Main
-# -----------------------------
-
 
 def main():
     visualizer = MultiTopologyVisualizer()

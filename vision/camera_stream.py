@@ -1,4 +1,3 @@
-from vision.interactive_targeting import get_candidate_points
 import depthai as dai
 import cv2
 import numpy as np
@@ -7,6 +6,8 @@ import tkinter as tk
 import time
 import threading
 from queue import Queue
+from vision.depth_stream import create_pipeline, create_simple_pipeline
+from vision.interactive_targeting import get_candidate_points
 from vision.interactive_targeting import get_candidate_points, draw_targets_on_rgb
 from vision.depth_stream import create_pipeline, create_simple_pipeline, filter_depth_range
 from gui.plot_utils import render_profile_plot, render_depth_colormap
@@ -14,18 +15,21 @@ from gui.plot_utils import render_profile_plot, render_depth_colormap
 _last_rgb_update = 0
 _last_depth_update = 0
 _last_plot_update = 0
-RGB_UPDATE_INTERVAL = 0.001  # ~30fps
-DEPTH_UPDATE_INTERVAL = 0.001  # ~20fps
+RGB_UPDATE_INTERVAL = 0.001  
+DEPTH_UPDATE_INTERVAL = 0.001
 PLOT_UPDATE_INTERVAL = 0.001   # ~10fps
 
 _rgb_image_cache = None
 _depth_image_cache = None
 
 
+
 def start_camera_stream(gui):
     """
-    Inicia o stream da câmera com tratamento de erros melhorado e otimização
+    Versão final e corrigida.
+    Inicia o stream da câmera, sendo o único local que se conecta ao dispositivo.
     """
+    # 1. Configura parâmetros da GUI e modo de performance
     set_performance_mode(gui, mode="quality")
 
     if not hasattr(gui, 'min_depth'):
@@ -35,10 +39,11 @@ def start_camera_stream(gui):
 
     gui._camera_running = True
     if not hasattr(gui, 'candidate_points'):
-         gui.candidate_points = []
+        gui.candidate_points = []
 
     gui._frame_skip_counter = 0
 
+    pipeline = None
     try:
         print("[INFO] Tentando criar pipeline otimizado...")
         pipeline = create_pipeline()
@@ -49,35 +54,39 @@ def start_camera_stream(gui):
             pipeline = create_simple_pipeline()
         except Exception as e2:
             print(f"[ERROR] Falha também no pipeline simplificado: {e2}")
-            print(
-                "[ERROR] Não foi possível inicializar a câmera. Verifique a conexão do dispositivo.")
-            return
+            print("[ERROR] Não foi possível criar um pipeline válido. Abortando.")
+            return  
 
     try:
-        print("[INFO] Conectando ao dispositivo...")
+        print("[INFO] Conectando ao dispositivo (única chamada)...")
         gui.device = dai.Device(pipeline)
+        print("[INFO] Conexão bem-sucedida!")
+
+        if hasattr(gui, 'pincher'):
+            gui.pincher.device = gui.device
+            print("[INFO] Dispositivo associado ao robô Pincher.")
 
         print("[INFO] Configurando filas de saída...")
         gui.rgb_queue = gui.device.getOutputQueue(
-            name="rgb", maxSize=2, blocking=False)
+            name="rgb", maxSize=4, blocking=False)
         gui.depth_queue = gui.device.getOutputQueue(
-            name="depth", maxSize=2, blocking=False)
+            name="depth", maxSize=4, blocking=False)
 
         print("[INFO] Iniciando atualização de frames...")
-        #update_camera_frames_optimized(gui)
         threading.Thread(target=update_camera_loop_thread,
                          args=(gui,), daemon=True).start()
 
         print("[INFO] Stream da câmera iniciado com sucesso!")
 
     except Exception as e:
-        print(f"[ERROR] Erro ao conectar com o dispositivo: {e}")
+        print(
+            f"[ERROR] Erro ao conectar com o dispositivo ou configurar filas: {e}")
         print("[INFO] Possíveis soluções:")
-        print("- Verifique se o cabo USB está conectado")
-        print("- Tente uma porta USB diferente")
-        print("- Reinicie o dispositivo")
-        print("- Verifique se não há outro processo usando a câmera")
-
+        print("- Verifique se o cabo USB está conectado firmemente.")
+        print("- Tente uma porta USB diferente (preferencialmente USB 3.0).")
+        print("- Reinicie o dispositivo (desconecte e reconecte o cabo USB).")
+        print("- Verifique no Gerenciador de Tarefas se não há outro processo 'python.exe' usando a câmera.")
+        return
 
 def update_camera_loop_thread(gui):
     global _last_rgb_update, _last_depth_update, _last_plot_update
@@ -183,7 +192,13 @@ def _update_rgb_frame_fast(gui):
         gui._rgb_raw = rgb_frame.copy()
 
         mask_rgb = extract_mask_bowls(rgb_frame)
-        gui.mask_rgb = mask_rgb  # salvar na GUI para usar depois nos pontos candidatos
+        debug_frame = rgb_frame.copy()
+        cv2.putText(debug_frame, "Janela de Debug - Aperte 'Q' para fechar",
+                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+        cv2.imshow("Debug da Mascara de Cor", mask_rgb)
+        if cv2.waitKey(1) == ord('q'):
+            cv2.destroyAllWindows()
+        gui.mask_rgb = mask_rgb 
 
         
         """DETECÇÃO DO ARUCO (ID 0) E MATRIZ T_cam_to_robo """
@@ -260,8 +275,8 @@ def _update_rgb_frame_fast(gui):
         gui.rgb_canvas.create_image(x, y, image=imgtk, anchor="center")
         gui.rgb_canvas.image = imgtk
         
-        rgb_frame = draw_targets_on_rgb(
-            rgb_frame, gui.candidate_points, color=(0, 255, 0))
+        if hasattr(gui, 'candidate_points') and gui.candidate_points:
+            rgb_frame = draw_targets_on_rgb(rgb_frame, gui.candidate_points)
 
 
     except Exception as e:
@@ -269,42 +284,53 @@ def _update_rgb_frame_fast(gui):
         
 
 def start_candidate_thread(gui):
+    """
+    Inicia uma thread dedicada para encontrar pontos candidatos de forma contínua
+    e segura.
+    """
     if not hasattr(gui, '_camera_running'):
         gui._camera_running = True
 
-    if not hasattr(gui, 'last_valid_point'):
-        gui.last_valid_point = None
-
     def update_loop():
+        print("[THREAD CANDIDATOS] Iniciada.")
         while getattr(gui, '_camera_running', False):
             try:
-                if hasattr(gui, 'last_depth_frame') and gui.last_depth_frame is not None \
-                   and hasattr(gui, 'T_cam_to_robo') and gui.T_cam_to_robo is not None \
-                   and hasattr(gui, 'pincher'):
+                # **CHAVE DA CORREÇÃO**: Checar se todos os componentes necessários estão prontos
+                if not all(hasattr(gui, attr) for attr in ['last_depth_frame', 'T_cam_to_robo', 'pincher', '_rgb_raw']):
+                    time.sleep(0.5) # Aguarda os componentes serem inicializados
+                    continue
+                
+                # Garante que os valores não são None
+                if gui.last_depth_frame is None or gui.T_cam_to_robo is None or gui.pincher is None or gui._rgb_raw is None:
+                    # Imprime um status útil para debug na primeira vez
+                    if not hasattr(gui, '_thread_wait_logged'):
+                        print("[THREAD CANDIDATOS] Aguardando inicialização completa (câmera, ArUco, robô)...")
+                        gui._thread_wait_logged = True
+                    time.sleep(0.5)
+                    continue
+                
+                # Se chegou aqui, tudo está pronto
+                if hasattr(gui, '_thread_wait_logged'):
+                    print("[THREAD CANDIDATOS] Componentes prontos. Iniciando busca de alvos.")
+                    delattr(gui, '_thread_wait_logged')
 
-                    pontos = get_candidate_points(
-                        gui.last_depth_frame,
-                        pincher=gui.pincher,
-                        T_cam_to_robo=gui.T_cam_to_robo,
-                        rgb_frame=gui._rgb_raw if hasattr(
-                            gui, '_rgb_raw') else None,
-                        last_valid_point=gui.last_valid_point
-                    )
 
-
-
-                    if pontos and pontos[0] is not None:
-                        gui.last_valid_point = pontos[0]
-                        gui.candidate_points = pontos
-                    elif gui.last_valid_point:
-                        gui.candidate_points = [gui.last_valid_point]
-                    else:
-                        gui.candidate_points = []
+                # Chama a nova função de busca de pontos (que é mais estável)
+                pontos = get_candidate_points(
+                    gui.last_depth_frame,
+                    pincher=gui.pincher,
+                    T_cam_to_robo=gui.T_cam_to_robo,
+                    rgb_frame=gui._rgb_raw
+                )
+                
+                # A nova função retorna uma lista vazia ou com um ponto estável
+                gui.candidate_points = pontos
 
             except Exception as e:
-                print(f"[THREAD] Erro ao atualizar candidatos: {e}")
+                print(f"[THREAD CANDIDATOS] Erro ao atualizar candidatos: {e}")
 
-            time.sleep(0.5)
+            # Roda a busca de alvos a uma taxa mais controlada (e.g., 2 vezes por segundo)
+            time.sleep(0.5) 
 
     threading.Thread(target=update_loop, daemon=True).start()
 
@@ -338,14 +364,12 @@ def _update_depth_frame_fast(gui):
         if depth_frame is None or depth_frame.size == 0:
             return
 
-        # Filtrar range de profundidade (operação otimizada)
         depth_filtered = _filter_depth_fast(
             depth_frame, gui.min_depth, gui.max_depth)
         
         gui.last_depth_frame = depth_filtered.copy()
 
 
-        # Renderizar apenas o colormap (sem plot)
         render_depth_colormap(depth_filtered, gui.depth_canvas,
                               gui, gui.min_depth, gui.max_depth)
 
@@ -358,7 +382,6 @@ def _update_plot_frame_fast(gui):
     Atualização otimizada apenas do gráfico de análise
     """
     try:
-        # Usar o último frame de profundidade se disponível
         in_depth = gui.depth_queue.tryGet()
         if not in_depth:
             return
@@ -368,11 +391,9 @@ def _update_plot_frame_fast(gui):
         if depth_frame is None or depth_frame.size == 0:
             return
 
-        # Filtrar range de profundidade
         depth_filtered = _filter_depth_fast(
             depth_frame, gui.min_depth, gui.max_depth)
 
-        # Renderizar apenas o gráfico de análise
         render_profile_plot(depth_filtered, gui.normals_canvas, gui)
 
     except Exception as e:
