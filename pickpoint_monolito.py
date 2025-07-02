@@ -10,7 +10,8 @@ from config import (T_CAM_TO_ROBOT,
                     DEPTH_MAX, 
                     DEPTH_MIN, 
                     WINDOW_HEIGHT, 
-                    WINDOW_WIDTH)
+                    WINDOW_WIDTH, 
+                    LR_CHECK_THRESHOLD)
 
 
 clicked_point = None
@@ -41,16 +42,14 @@ def create_optimized_pipeline():
      """
     pipeline = dai.Pipeline()
 
-    # RGB Camera - Configuração consistente de resolução
     cam_rgb = pipeline.create(dai.node.ColorCamera)
-    cam_rgb.setPreviewSize(640, 480)  # Mantendo consistência com depth
+    cam_rgb.setPreviewSize(640, 480) 
     cam_rgb.setResolution(
         dai.ColorCameraProperties.SensorResolution.THE_1080_P)
     cam_rgb.setInterleaved(False)
     cam_rgb.setFps(30)
     cam_rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.RGB)
 
-    # Configurações de exposição
     exposure_anotado = 7857
     iso_anotado = 729
     wb_anotado = 5388
@@ -58,14 +57,12 @@ def create_optimized_pipeline():
     cam_rgb.initialControl.setManualExposure(exposure_anotado, iso_anotado)
     cam_rgb.initialControl.setManualWhiteBalance(wb_anotado)
 
-    # Mono Cameras - Configuração crítica para objetos próximos
     mono_left = pipeline.create(dai.node.MonoCamera)
     mono_right = pipeline.create(dai.node.MonoCamera)
 
     mono_left.setBoardSocket(dai.CameraBoardSocket.CAM_B)
     mono_right.setBoardSocket(dai.CameraBoardSocket.CAM_C)
 
-    # 400P ao invés de 720P para melhor performance em objetos próximos
     mono_left.setResolution(
         dai.MonoCameraProperties.SensorResolution.THE_400_P)
     mono_right.setResolution(
@@ -73,43 +70,40 @@ def create_optimized_pipeline():
     mono_left.setFps(30)
     mono_right.setFps(30)
 
-    # StereoDepth - Configuração otimizada
     stereo = pipeline.create(dai.node.StereoDepth)
     mono_left.out.link(stereo.left)
     mono_right.out.link(stereo.right)
 
-    # Configurações fundamentais
+    '''fundamentais'''
     stereo.setDefaultProfilePreset(
         dai.node.StereoDepth.PresetMode.HIGH_ACCURACY)
     stereo.setDepthAlign(dai.CameraBoardSocket.RGB)
 
-    # CRÍTICO: ExtendedDisparity para objetos próximos
+    '''CRÍTICO: ExtendedDisparity para objetos próximos'''
     stereo.setExtendedDisparity(True)
     stereo.setLeftRightCheck(True)
-    stereo.setSubpixel(False)  # Desabilitar para reduzir ruído
+    stereo.setSubpixel(False)  
 
-    # Configuração avançada - A CHAVE PARA ESTABILIDADE
+    '''configuração avançada - A CHAVE PARA ESTABILIDADE'''
     config = stereo.initialConfig.get()
 
     try:
-        # Filtro de threshold
         config.postProcessing.thresholdFilter.minRange = DEPTH_MIN
         config.postProcessing.thresholdFilter.maxRange = DEPTH_MAX
 
-        # Filtro espacial - CRÍTICO para suavização
+        '''filtro espacial - CRÍTICO para suavização'''
         config.postProcessing.spatialFilter.enable = True
         config.postProcessing.spatialFilter.holeFillingRadius = 2
         config.postProcessing.spatialFilter.numIterations = 1
         config.postProcessing.spatialFilter.alpha = 0.5
         config.postProcessing.spatialFilter.delta = 20
 
-        # Filtro temporal - estabiliza entre frames
+        '''o filtro temporal - estabiliza entre frames'''
         config.postProcessing.temporalFilter.enable = True
         config.postProcessing.temporalFilter.alpha = 0.4
         config.postProcessing.temporalFilter.delta = 20
         config.postProcessing.temporalFilter.persistencyMode = dai.RawStereoDepthConfig.PostProcessing.TemporalFilter.PersistencyMode.VALID_8_OUT_OF_8
 
-        # Filtro de speckle
         config.postProcessing.speckleFilter.enable = True
         config.postProcessing.speckleFilter.speckleRange = 50
 
@@ -137,7 +131,6 @@ def create_optimized_pipeline():
 
     stereo.initialConfig.set(config)
 
-    # Saídas do pipeline
     xout_rgb = pipeline.create(dai.node.XLinkOut)
     xout_rgb.setStreamName("rgb")
     cam_rgb.preview.link(xout_rgb.input)  # Usa preview que já está em 640x480
@@ -268,7 +261,6 @@ def create_depth_colormap(depth_frame):
     """
     Cria mapa de cores otimizado para visualização de profundidade
     """
-    # Normaliza parao range esperado
     depth_normalized = np.clip(depth_frame, DEPTH_MIN, DEPTH_MAX)
     depth_normalized = ((depth_normalized - DEPTH_MIN) /
                         (DEPTH_MAX - DEPTH_MIN) * 255).astype(np.uint8)

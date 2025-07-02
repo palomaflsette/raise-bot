@@ -1,4 +1,4 @@
-# --- CONFIGURAÇÕES DE HARDWARE ---
+import numpy as np
 ROBOT_SERIAL_PORT = 'COM7'
 ROBOT_IDS = [1, 2, 3, 4]
 GRIPPER_ID = 5
