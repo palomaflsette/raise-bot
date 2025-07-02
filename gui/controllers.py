@@ -4,29 +4,14 @@ botões e eventos da interface
 import sys
 import os
 sys.path.append(os.path.abspath(".."))
-
-from robot.pincher import Pincher 
-
-import threading
-from vision.simulate_stream import start_simulated_stream
-from vision.camera_stream import start_camera_stream, start_candidate_thread
+from robot.pincher import Pincher
 import depthai as dai
-
-def start_system(gui):
-    """
-    Versão corrigida: Apenas prepara os objetos e delega a conexão da
-    câmera para a thread do camera_stream.
-    """
-    gui.pincher = Pincher()
-
-    if not hasattr(gui, "last_valid_point"):
-        gui.last_valid_point = None
-
-    start_candidate_thread(gui)
-
-    print("Sistema iniciado. Aguardando conexão da câmera...")
-    
-    threading.Thread(target=lambda: start_camera_stream(gui), daemon=True).start()
+from config import ROBOT_SERIAL_PORT, CALIBRATION_MATRIX_FILE
+from vision.camera_stream import start_camera_stream, start_candidate_thread
+from vision.simulate_stream import start_simulated_stream
+import threading
+import numpy as np  
+from time import sleep
 
 
 def start_debug_mode(gui):
@@ -35,46 +20,92 @@ def start_debug_mode(gui):
         gui), daemon=True).start()
 
 
-# Em gui/controllers.py
+
+def start_system(gui):
+    """
+    Versão final que conecta ao robô e o prepara para a ação.
+    """
+    try:
+        gui.T_cam_to_robo = np.loadtxt(CALIBRATION_MATRIX_FILE)
+        print(f"Matriz de calibração '{CALIBRATION_MATRIX_FILE}' carregada.")
+        print(f"Matriz T_cam_to_robot ==> {gui.T_cam_to_robo}")
+    except IOError:
+        print(
+            f"ERRO FATAL: Arquivo '{CALIBRATION_MATRIX_FILE}' não encontrado!")
+        return
+    
+    try:
+        gui.pincher = Pincher(port=ROBOT_SERIAL_PORT)
+        print(f"Conexão com o robô estabelecida na porta {ROBOT_SERIAL_PORT}.")
+
+        sleep(2)
+
+        gui.pincher.enable(gui.pincher.arm_ids)
+        print("Motores do robô habilitados e prontos.")
+    except Exception as e:
+        print(
+            f"[ERRO FATAL] Não foi possível conectar/habilitar o robô na {ROBOT_SERIAL_PORT}: {e}")
+        return
+
+    start_candidate_thread(gui)
+
+    print("Sistema de visão iniciado. Procurando alvos...")
+    threading.Thread(target=lambda: start_camera_stream(gui),
+                     daemon=True).start()
+
+
 
 def move_to_target(gui):
     """
-    Pega o último alvo válido encontrado e envia o comando de movimento
-    para o robô Pincher usando a função correta 'move'.
+    Versão final que lê a tupla do alvo na memória e move o robô.
     """
-    # Verifica se existe um alvo válido guardado na "memória"
     if not hasattr(gui, 'last_known_point') or gui.last_known_point is None:
-        print(
-            "[ERRO] Nenhum alvo estável encontrado ainda. Tente posicionar melhor o objeto.")
+        print("[AVISO] Nenhum alvo na memória. Aguarde o alvo verde aparecer e estabilizar.")
         return
 
-    print("--- COMANDO DE MOVIMENTO INICIADO ---")
+    print("--- COMANDO DE MOVIMENTO RECEBIDO ---")
+    
 
-    # Pega a solução dos motores (q) que foi guardada
-    try:
-        # A estrutura que definimos antes é um dicionário
-        q_solution = gui.last_known_point["q_solution"]
-    except (KeyError, TypeError):
-        print("[ERRO] O alvo guardado não contém a solução dos motores ('q_solution').")
-        return
-
-    # Pega os IDs dos motores que definimos no Pincher
+    q_solution = gui.last_known_point[5]
     motor_ids = gui.pincher.arm_ids
+    velocidade = 0.4
 
-    # Define uma velocidade para o movimento (em rad/s) para não ser muito brusco
-    velocidade = 0.5
+    print(f"Alvo em graus: {np.degrees(q_solution).round(1)}°")
+    
+    try:
+        gui.pincher.enable(motor_ids)
+        gui.pincher.move(motor_ids, q_solution, speed=velocidade)
+        print(" Movimento CONCLUÍDO!")
+    except Exception as e:
+        print(f"[ERRO] Falha durante a execução do movimento: {e}")
 
-    print(
-        f"Movendo os motores {motor_ids} para os ângulos (rad): {q_solution} com velocidade {velocidade} rad/s")
+def reset_robot(gui):
+    """
+    Reseta o robô para a posição home (todos os ângulos = 0).
+    """
+    if not hasattr(gui, 'pincher') or gui.pincher is None:
+        print(
+            "[ERRO] Sistema não foi inicializado. Clique em 'Iniciar Sistema' primeiro.")
+        return
+
+    print("--- RESETANDO ROBÔ PARA POSIÇÃO HOME ---")
 
     try:
-        # --- CHAMADA CORRETA DA FUNÇÃO DE MOVIMENTO ---
-        gui.pincher.move(motor_ids, q_solution, speed=velocidade)
-        print("✅ Movimento concluído!")
+        motor_ids = gui.pincher.arm_ids
+        home_position = [0.0] * len(motor_ids)  
+
+        gui.pincher.enable(motor_ids)
+        gui.pincher.move(motor_ids, home_position, speed=0.2, margin=0.1)
+
+        print("Robô resetado para posição home.")
+
     except Exception as e:
-        print(f"[ERRO] Falha ao enviar comando para o robô: {e}")
-        
-        
-def reset_robot(gui): pass
-def save_capture(gui): pass
-def toggle_debug(gui): pass
+        print(f"[ERRO] Falha ao resetar robô: {e}")
+
+
+def save_capture(gui):
+         print("Função de salvar captura não implementada ainda.")
+
+
+def toggle_debug(gui):
+    print("Função de toggle debug não implementada ainda.")

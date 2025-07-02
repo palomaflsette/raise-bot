@@ -18,15 +18,12 @@ def create_section(parent, title, placeholder_text):
     Returns:
         tuple: (frame, canvas) - frame da seção e canvas interno
     """
-    # Frame principal da seção
     section_frame = ctk.CTkFrame(parent)
 
-    # Configurar grid para ser responsivo
     section_frame.grid_columnconfigure(0, weight=1)
-    section_frame.grid_rowconfigure(0, weight=0)  # Título (altura fixa)
-    section_frame.grid_rowconfigure(1, weight=1)  # Canvas (expansível)
+    section_frame.grid_rowconfigure(0, weight=0)  
+    section_frame.grid_rowconfigure(1, weight=1)  
 
-    # Título da seção
     title_label = ctk.CTkLabel(
         section_frame,
         text=title,
@@ -35,33 +32,29 @@ def create_section(parent, title, placeholder_text):
     )
     title_label.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 5))
 
-    # Frame para o canvas
     canvas_frame = ctk.CTkFrame(section_frame)
     canvas_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
     canvas_frame.grid_columnconfigure(0, weight=1)
     canvas_frame.grid_rowconfigure(0, weight=1)
 
-    # Canvas para exibir imagens
     canvas = tk.Canvas(
         canvas_frame,
         bg="#3a3a3a",
         highlightthickness=1,
         highlightbackground="#565656",
-        relief="flat", width=800,  # Largura mínima maior
+        relief="flat", width=800,  
         height=600
     )
     canvas.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
 
-    # Expansão vertical e horizontal
     canvas_frame.pack_propagate(False)
 
-    # Função para redimensionar o canvas e centralizar o texto
     def resize_canvas(event=None):
         canvas.delete("placeholder")
         canvas_width = canvas.winfo_width()
         canvas_height = canvas.winfo_height()
 
-        if canvas_width > 1 and canvas_height > 1:  # Garantir que o canvas foi renderizado
+        if canvas_width > 1 and canvas_height > 1:  
             center_x = canvas_width // 2
             center_y = canvas_height // 2
 
@@ -75,7 +68,7 @@ def create_section(parent, title, placeholder_text):
 
     canvas.bind("<Configure>", resize_canvas)
 
-    canvas.configure(width=400, height=250)  # valor base maior
+    canvas.configure(width=400, height=250)  
 
     return section_frame, canvas
 

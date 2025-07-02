@@ -21,9 +21,11 @@ from scipy.ndimage import gaussian_filter1d, uniform_filter
 
 
 DEPTH_MIN = 100   # mm 
-DEPTH_MAX = 430   # mm 
+DEPTH_MAX = 440   # mm 
 CONFIDENCE_THRESHOLD = 200  # Mais permissivo
 LR_CHECK_THRESHOLD = 2      # Mais tolerante
+
+
 
 def extract_stable_profile_line(depth_frame, line_y=240, window_size=5):
     height, width = depth_frame.shape

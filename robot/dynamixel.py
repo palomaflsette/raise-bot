@@ -325,7 +325,7 @@ class Arbotix():
 
 
 if __name__ == '__main__':
-    arbotix = Arbotix('/dev/ttyUSB0')
+    arbotix = Arbotix('COM7')
     arbotix.setcompliance([1, 2, 3, 4, 5], 128)
     arbotix.setangle([1, 2, 3, 4, 5], 0, 0.5)
     while True:

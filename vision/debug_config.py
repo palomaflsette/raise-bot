@@ -19,7 +19,7 @@ class DebugConfig:
             "scenarios": {
                 "moving_object": {
                     "description": "Objeto cilíndrico se movendo",
-                    "background_depth": 400,
+                    "background_depth": 440,
                     "object_depth": 250,
                     "object_radius": 50,
                     "movement_amplitude": 150,
@@ -80,7 +80,7 @@ class DebugConfig:
                 "profile_line_y": 240,
                 "profile_window_size": 7,
                 "close_object_min": 100,
-                "close_object_max": 400,
+                "close_object_max": 500,
                 "gradient_limit": 40
             }
         }

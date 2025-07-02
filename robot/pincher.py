@@ -1,140 +1,112 @@
-#!/usr/bin/env python
-# (c) 2022 Wouter Caarls, PUC-RIO
-
-"""Pincher driver."""
 
 import numpy as np
 from math import pi, sin, cos, atan2, sqrt, radians
 from .dynamixel import Arbotix
-from transforms.transformations import *
+from transforms.transformations import HT,HZ,HX, origin, zaxis, get_ee, get_frame, normalize_angles
+
 
 class Pincher(Arbotix):
     def __init__(self, port=None):
         super(Pincher, self).__init__(port)
-        self.l1 = 0.109
-        self.l2 = 0.109
-        self.l3 = 0.08
-        self.zbase = 0.106+0.047
-        
+        self.d1 = 0.106 + 0.047  # = 0.153
+        self.a2 = 0.108
+        self.a3 = 0.109
+        self.a4 = 0.080 + 0.045  
+
         self.arm_ids = [1, 2, 3, 4]
-        self.gripper_id = 5 #id do servo do end-effector
+        self.gripper_id = 5
+
+    def fk(self, q):
+        """
+        Cinemática Direta ("O Corpo") - Implementação fiel do modelo DH do lab3.
+        """
+        theta1, theta2, theta3, theta4 = q[0], q[1], q[2], q[3]
+
+        theta2_com_offset = theta2 + pi/2
+
+        H01 = HZ(theta1) @ HT([0, 0, self.d1]) @ HX(-pi/2)
+        H12 = HZ(theta2_com_offset) @ HT([self.a2, 0, 0])
+        H23 = HZ(theta3) @ HT([self.a3, 0, 0])
+        H3e = HZ(theta4) @ HT([self.a4, 0, 0])
+
+
+        return [H01, H12, H23, H3e]
+
+    def jacobian(self, q):
+        """Calcula a Jacobiana geométrica (os "Nervos")."""
+        tr = self.fk(q)
+        J = np.zeros((3, len(q)))
+        o_n = origin(get_ee(tr))
+
+        z0 = np.array([0, 0, 1])
+        J[:, 0] = np.cross(z0, o_n)
+
+        # outras juntas
+        for i in range(1, len(q)):
+            h_i_minus_1 = get_frame(tr, i-1)
+            o_i_minus_1 = origin(h_i_minus_1)
+            z_i_minus_1 = zaxis(h_i_minus_1)
+            J[:, i] = np.cross(z_i_minus_1, o_n - o_i_minus_1)
+        return J
+
+    def ik(self, target_pos, q_guess=np.zeros(4)):
+        """
+        Cinemática Inversa Diferencial (a "Mente").
+        Acha os ângulos 'q' para chegar em 'target_pos'.
+        """
+        q = np.copy(q_guess)
+
+        for _ in range(100):  
+            current_pos = origin(get_ee(self.fk(q)))
+            error = target_pos - current_pos
+
+            if np.linalg.norm(error) < 1e-4:  
+                if not self.admissible(q):
+                    raise ValueError("Solução encontrada, mas não é segura.")
+                return q  
+
+            J = self.jacobian(q)
+            lambda_sq = 0.01
+            J_pinv = J.T @ np.linalg.inv(J @ J.T + lambda_sq * np.eye(3))
+
+            q = q + J_pinv @ error
+            q = normalize_angles(q)
+
+        raise ValueError("IK não convergiu para uma solução.")
 
     def admissible(self, q):
-        """Verifies if q is an admissible configuration."""
-        if np.any(np.abs(q) > 2*pi/3):
-           return False
+        """Verifica se a configuração 'q' é segura."""
+        q_limits = [2.9, 2.0, 2.0, 2.9]
+        for i, angle in enumerate(q):
+            if abs(angle) > q_limits[i]:
+                return False
         tr = self.fk(q)
-        for i in range(1, len(tr)):
-          if origin(get_frame(tr, i))[2] < 0.05:
+        for i in range(len(tr)):
+          if origin(get_frame(tr, i))[2] < 0.01:
             return False
         return True
 
-    def fk(self, q):
-        """Returns a list of coordinate frames corresponding
-           to the configuration q."""
-        H0b = H(T=[0,0,0.106])
-        H10 = H(RZ(q[0]), [0,0,0.047])@H(RX(-pi/2))
-        H21 = H(RZ(q[1]-pi/2))@H(T=[self.l1,0,0])
-        H32 = H(RZ(q[2]))@H(T=[self.l2,0,0])
-        H43 = H(RZ(q[3]))@H(T=[self.l3,0,0])
-        He4 = np.array([[0, 1, 0, 0], [0, 0, 1, 0], [1, 0, 0, 0], [0, 0, 0, 1]]).T
-    
-        return [H0b, H10, H21, H32, H43, He4]
 
-    def jacobian(self, q):
-        """Returns the analytical Jacobian at configuration q."""
-        tr = self.fk(q)
-        J = np.zeros((4, len(q)))
-        # Linear part
-        for i in range(len(q)):
-            z = get_frame(tr, i)[0:3,2]
-            d = origin(get_ee(tr)) - origin(get_frame(tr, i))
-            J[0:3,i] = np.cross(z, d)
+    def get_ik_solution(self, robot_target_pos):
+        """Tenta encontrar uma solução de IK para a posição alvo."""
+        try:
+            q_guess = self.getangle(self.arm_ids)
+            if not q_guess or len(q_guess) != 4:
+                q_guess = np.zeros(4)
+        except:
+            q_guess = np.zeros(4)
 
-        # Angular part (angle in rotated XZ)
-        J[3, 1:4] = 1
-        return J
+        try:
+            q_solution = self.ik(robot_target_pos, q_guess)
+            print("[IK SUCESSO] Solução diferencial encontrada.")
+            return q_solution
+        except ValueError as e:
+            # print(f"[FALHA DE IK] {e}")
+            return None
 
-    def ik(self, x):
-        """Returns the algebraic inverse kinematics solution for position x."""
-        xp = np.copy(x)
-        q = np.zeros(4)
-        q[0] = atan2(x[1], x[0])
-
-        # Rewrite to link 2 origin of 3-link planar arm in XZ
-        phi = -x[3]
-        z = x[2]-self.l3*sin(phi)-self.zbase
-        x = sqrt(x[0]**2 + x[1]**2) - self.l3*cos(phi)
-
-        # Siciliano, p. 92
-        norm2 = x**2+z**2
-        c2 = (norm2-self.l1**2-self.l2**2)/(2*self.l1*self.l2)
-        # if c2 < -1 or c2 > 1:
-        #     print(f"[IK] Ponto descartado: c2={c2:.5f} fora do domínio válido")
-        #     return None  
-
-        s2 = -sqrt(1-c2**2) # Always arm up
-        t2 = atan2(s2, c2)
-        c1 = ((self.l1+self.l2*c2)*x+self.l2*s2*z)/norm2
-        s1 = ((self.l1+self.l2*c2)*z-self.l2*s2*x)/norm2
-        t1 = atan2(s1, c1)
-        t3 = phi - t1 - t2
-
-        # Rewrite to pincher angle configuration
-        q[1] = pi/2-t1
-        q[2] = -t2
-        q[3] = -t3
-
-        if not self.admissible(q):
-            raise ValueError(str(q) + "is not a valid solution for " + str(xp))
-
-        return q
-    
-    def try_ik_with_phi_range(self, pose_xyz, phi_range_deg=(-90, 95), step_deg=5):
-        """
-        Tenta encontrar uma solução de IK para uma dada posição [x, y, z],
-        iterando sobre uma faixa de ângulos da garra (phi).
-        """
-        x, y, z = pose_xyz
-        
-        for deg in range(int(phi_range_deg[0]), int(phi_range_deg[1]), step_deg):
-            phi = radians(deg)
-            pose = [x, y, z, phi]
-            try:
-                q = self.ik(pose)
-                # Se encontrou uma solução válida, retorna imediatamente
-                print(f"[IK SUCESSO] Solução encontrada com phi = {deg}°")
-                return q
-            except ValueError:
-                # Continua para o próximo ângulo
-                continue
-        
-        # Se o loop terminar sem encontrar solução
-        # print(f"[IK FALHA] Nenhuma solução de IK encontrada para a posição ({x:.2f}, {y:.2f}, {z:.2f}) no intervalo de phi.")
-        return None
-
-
-
-    def pose(self, f):
-        """Returns the pose of frame f. The orientation is the angle of the
-           end effector frame around the base Y axis rotated by theta_1.
-           Angle 0 points along the nominal base X axis."""
-        x = np.zeros(4)
-        x[0:3] = origin(f)
-        fr = H(RZ(-atan2(x[1], x[0])))@f
-        x[3] = -atan2(fr[0,0], fr[0,2])
-        return x
-
-    def within_workspace(self, p_robo, min_radius=0.09, max_radius=0.70, min_z=-0.15, max_z=0.30):
-        """
-        Checa se o ponto transformado (em metros) está dentro do workspace realista:
-        → visível pela câmera e fisicamente alcançável pelo robô.
-        """
+    def within_workspace(self, p_robo):
+        min_radius, max_radius = 0.10, 0.40
+        min_z, max_z = 0.02, 0.45
         x, y, z = p_robo[:3]
         radius = np.sqrt(x**2 + y**2)
-        
-        dentro = (min_radius <= radius <= max_radius) and (min_z <= z <= max_z)
-        if not dentro:
-            print(f"[WORKSPACE REJECTION] Raio={radius:.3f}m, Altura z={z:.3f}m -> FORA")
-        return dentro
-
+        return (min_radius <= radius <= max_radius) and (min_z <= z <= max_z)
