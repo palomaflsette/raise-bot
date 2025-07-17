@@ -6,7 +6,7 @@ import os
 sys.path.append(os.path.abspath(".."))
 from robot.pincher import Pincher
 import depthai as dai
-from config import ROBOT_SERIAL_PORT, CALIBRATION_MATRIX_FILE
+from config import ROBOT_SERIAL_PORT, T_CAM_TO_ROBOT
 from vision.camera_stream import start_camera_stream, start_candidate_thread
 from vision.simulate_stream import start_simulated_stream
 import threading
@@ -26,12 +26,12 @@ def start_system(gui):
     Versão final que conecta ao robô e o prepara para a ação.
     """
     try:
-        gui.T_cam_to_robo = np.loadtxt(CALIBRATION_MATRIX_FILE)
-        print(f"Matriz de calibração '{CALIBRATION_MATRIX_FILE}' carregada.")
+        gui.T_cam_to_robo = T_CAM_TO_ROBOT
+        print(f"Matriz de calibração '{T_CAM_TO_ROBOT}' carregada.")
         print(f"Matriz T_cam_to_robot ==> {gui.T_cam_to_robo}")
     except IOError:
         print(
-            f"ERRO FATAL: Arquivo '{CALIBRATION_MATRIX_FILE}' não encontrado!")
+            f"ERRO FATAL: Arquivo '{T_CAM_TO_ROBOT}' não encontrado!")
         return
     
     try:
