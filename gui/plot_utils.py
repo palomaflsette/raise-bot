@@ -1,3 +1,4 @@
+
 from io import BytesIO
 from PIL import Image
 import numpy as np
@@ -27,7 +28,7 @@ def render_profile_plot_comparison(depth_frame, target_widget, parent_gui):
     """
     z_raw = extract_stable_profile_line(depth_frame, line_y=240, window_size=5)
     z_raw[z_raw == 0] = np.nan 
-    z_raw[(z_raw < 100) | (z_raw > 400)] = np.nan
+    z_raw[(z_raw < 100) | (z_raw > 440)] = np.nan
     
     valid_count = np.count_nonzero(~np.isnan(z_raw))
     z = np.copy(z_raw)
@@ -46,7 +47,7 @@ def render_profile_plot_comparison(depth_frame, target_widget, parent_gui):
     else:
         return
     
-    close_mask = (z > 100) & (z < 400)
+    close_mask = (z > 100) & (z < 440)
     close_points = np.sum(close_mask)
     if close_points < 10:
         return
@@ -137,32 +138,31 @@ def render_profile_plot(depth_frame, target_widget, parent_gui):
     z_raw[z_raw == 0] = np.nan # Converter zeros para nan
     
     # Filtrando apenas objetos próximos (100-400mm) com tolerância maior
-    z_raw[(z_raw < 100) | (z_raw > 400)] = np.nan
+    z_raw[(z_raw < 100) | (z_raw > 440)] = np.nan
 
     # Verificando se há pontos suficientes
     valid_count = np.count_nonzero(~np.isnan(z_raw))
 
-    #  suavização adicional
     z = np.copy(z_raw)
 
-    # Interpolando melhor pontos faltantes
     valid_mask = ~np.isnan(z)
-    if np.sum(valid_mask) > 10:
+    if np.sum(valid_mask) > 3:
+        
         x_coords = np.arange(len(z))
         valid_coords = x_coords[valid_mask]
+        
         valid_values = z[valid_mask]
+        print(f"PONTOS VÁLILDOS ==> {np.sum(valid_mask)}")
         try:
-            # Interp. linear
             z = np.interp(x_coords, valid_coords, valid_values)
-            #z = gaussian_filter1d(z, sigma=2.0)
         except Exception as e:
             print(f"[ERRO] Falha na interpolação: {e}")
             return
     else:
         print("[AVISO] Poucos pontos válidos para interpolação.")
+        print(f"PONTOS VÁLILDOS ==> {np.sum(valid_mask)}")
         return
     
-        # === PERFIL CORRIGIDO COM T_cam_to_robo (opcional) ===
     perfil_corrigido = None
     if hasattr(parent_gui, "T_cam_to_robo") and parent_gui.T_cam_to_robo is not None:
         try:
@@ -171,59 +171,44 @@ def render_profile_plot(depth_frame, target_widget, parent_gui):
             print(f"[ERRO] Falha ao calcular perfil corrigido: {e}")
 
 
-    # detectando a região de interesse (objetos próximos)
-    close_mask = (z > 100) & (z < 400)
+    close_mask = (z > 100) & (z < 440)
     close_points = np.sum(close_mask)
     if close_points < 10:
         print(f"[AVISO] Apenas {close_points} pontos próximos detectados.")
         return
 
     """
-    CORREÇÃO PRINCIPAL: Calcular normais geometricamente corretas
+    Calcular normais geometricamente corretas
     """
-    # Calcular gradiente (inclinação da superfície)
     dx = 1.0  # Espaçamento em pixels
     dz_dx = np.gradient(z, dx)
     
-    # Calcular vetores tangentes à superfície
-    # Vetor tangente = (dx, dz) = (1, dz/dx)
+
     tangent_vectors = np.stack([np.ones_like(dz_dx), dz_dx], axis=1)
     
-    # Vetor normal é perpendicular ao tangente
-    # Se tangente = (1, dz/dx), então normal = (-dz/dx, 1)
-    # Normalizado: normal = (-dz/dx, 1) / sqrt((dz/dx)² + 1)
+
     normal_vectors = np.stack([-dz_dx, np.ones_like(dz_dx)], axis=1)
     
-    # Normalizar os vetores normais
     norms = np.linalg.norm(normal_vectors, axis=1, keepdims=True)
-    norms[norms == 0] = 1  # Evitar divisão por zero
+    norms[norms == 0] = 1 
     normal_vectors = normal_vectors / norms
-    
-    # Alternativamente, você pode usar o método direto:
-    # Para uma superfície z = f(x), o vetor normal é:
-    # n = (-f'(x), 1) / sqrt(f'(x)² + 1)
-    
-    # Criar plot com informações de debug
+
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 6), dpi=720)
 
-    # Plot principal - perfil de profundidade
     x_coords = np.arange(len(z))
     ax1.plot(x_coords, z, color="cyan", linewidth=2,
              label="Perfil de Profundidade")
     ax1.fill_between(x_coords, z, alpha=0.3, color="cyan")
 
-    # Destacando região de objetos próximos
     close_indices = np.where(close_mask)[0]
     if len(close_indices) > 0:
         ax1.scatter(close_indices, z[close_indices],
                     color="yellow", s=3, alpha=0.7, label="Objetos Próximos")
 
-    # Plotar normais CORRETAS apenas na região próxima
-    step = max(1, len(close_indices) // 15)  # Máximo de 15 vetores para clareza
+    step = max(1, len(close_indices) // 15)  
     sample_indices = close_indices[::step]
 
     if len(sample_indices) > 0:
-        #escala vetores normais para visualização
         scale_factor = 40 
         
         ax1.quiver(
@@ -235,7 +220,6 @@ def render_profile_plot(depth_frame, target_widget, parent_gui):
             width=0.003, alpha=0.8, label="Normais Corretas"
         )
         
-        # tangentes para comparação
         ax1.quiver(
             sample_indices,
             z[sample_indices],
@@ -254,11 +238,9 @@ def render_profile_plot(depth_frame, target_widget, parent_gui):
     ax1.grid(True, alpha=0.3)
     ax1.legend(loc='upper right', fontsize=8)
 
-    # Plot secundário - gradientes e ângulos das normais
     ax2.plot(x_coords, dz_dx, color="orange",
              linewidth=1, label="Gradiente dZ/dx")
     
-    # Calcular ângulo das normais em relação à vertical (em graus)
     normal_angles = np.degrees(np.arctan2(normal_vectors[:, 0], normal_vectors[:, 1]))
     ax2.plot(x_coords, normal_angles, color="purple",
              linewidth=1, label="Ângulo Normal (°)")
@@ -271,7 +253,6 @@ def render_profile_plot(depth_frame, target_widget, parent_gui):
     ax2.grid(True, alpha=0.3)
     ax2.legend(loc='upper right', fontsize=8)
 
-    # Estatísticas
     stats_text = f"Profundidade média: {np.mean(z[close_mask]):.1f}mm\n"
     stats_text += f"Desvio padrão: {np.std(z[close_mask]):.1f}mm\n"
     stats_text += f"Range: {np.min(z[close_mask]):.0f}-{np.max(z[close_mask]):.0f}mm\n"
@@ -416,7 +397,7 @@ def analyze_surface_curvature(depth_profile):
     }
 
 
-def extract_object_boundaries(depth_frame, min_depth=100, max_depth=430):
+def extract_object_boundaries(depth_frame, min_depth=100, max_depth=440):
     """
     Detecta bordas de objetos próximos para melhor compreensão da cena
     """
@@ -458,7 +439,7 @@ def render_enhanced_depth_analysis(depth_frame, target_widget, parent_gui):
 
     # Plot 1: Perfil de profundidade com normais
     ax1 = axes[0, 0]
-    valid_mask = ~np.isnan(z_profile) & (z_profile > 99) & (z_profile < 430)
+    valid_mask = ~np.isnan(z_profile) & (z_profile > 99) & (z_profile < 440)
     x_coords = np.arange(len(z_profile))
 
     if np.sum(valid_mask) > 10:

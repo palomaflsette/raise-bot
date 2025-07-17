@@ -54,7 +54,7 @@ class DebugSimulator:
 
     def _generate_moving_object(self, width, height, time_factor):
         """Objeto cilíndrico se movendo horizontalmente"""
-        depth_frame = np.full((height, width), 400,
+        depth_frame = np.full((height, width), 550,
                               dtype=np.uint16)  # Background a 400mm
 
         # Posição do objeto (oscila da esquerda para direita)
@@ -110,7 +110,7 @@ class DebugSimulator:
         # Adicionar ruído
         noise = np.random.normal(0, self.noise_level * 3, (height, width))
         depth_frame = depth_frame.astype(np.float32) + noise
-        depth_frame = np.clip(depth_frame, 100, 400).astype(np.uint16)
+        depth_frame = np.clip(depth_frame, 100, 550).astype(np.uint16)
 
         return depth_frame
 
@@ -181,7 +181,7 @@ class DebugSimulator:
         # Ruído mínimo
         noise = np.random.normal(0, self.noise_level * 2, (height, width))
         depth_frame = depth_frame.astype(np.float32) + noise
-        depth_frame = np.clip(depth_frame, 200, 400).astype(np.uint16)
+        depth_frame = np.clip(depth_frame, 200, 550).astype(np.uint16)
 
         return depth_frame
 

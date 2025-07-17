@@ -33,7 +33,7 @@ robot = None
 
 # Matriz de transformação câmera->robô (FIXA baseada na calibração)
 T_CAM_TO_ROBOT = np.array([
-    [-1.,  0.,  0.,   0.],   # Rotação em Y (π) + Translação Z (00aamm)
+    [-1.,  0.,  0.,   0.],   # Rotação em Y (π) + Translação Z (500mm)
     [0.,  1.,  0.,   0.],
     [0.,  0., -1., 550.],
     [0.,  0.,  0.,   1.]
