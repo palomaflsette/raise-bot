@@ -140,9 +140,9 @@ python simulator.py
 ## 🎥 Vídeos de Demonstração
 O funcionamento do sistema foi gravado e está disponível no YouTube:
 
-Vídeo 1: Demonstração Geral do Sistema
+[Vídeo 1: Demonstração Geral do Sistema](<https://youtu.be/tvQ-3jA6I2M>)
 
-Vídeo 2: Teste de Precisão e Repetibilidade
+[Vídeo 2: Teste de Precisão e Repetibilidade](<https://youtu.be/tBhzTV4Ekug>)
 
 ## Trabalhos Futuros
 - Controle de Orientação Normal: Implementar o controle da orientação do efetuador para que ele aborde superfícies de forma perpendicular, utilizando o módulo de análise de perfil de superfície já desenvolvido.
